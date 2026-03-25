@@ -1,0 +1,116 @@
+
+# ==========================================
+# Credit Card Fraud Detection System
+# ==========================================
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+    roc_curve
+)
+
+# -----------------------------
+# 1. Load Dataset
+# -----------------------------
+
+df = pd.read_csv("creditcard.csv")
+
+print("\nDataset Shape:", df.shape)
+print(df.head())
+
+# -----------------------------
+# 2. Data Exploration
+# -----------------------------
+
+print("\nClass Distribution:")
+print(df["Class"].value_counts())
+
+sns.countplot(x="Class", data=df)
+plt.title("Fraud vs Legit Transactions")
+plt.show()
+
+# -----------------------------
+# 3. Feature Scaling
+# -----------------------------
+
+scaler = StandardScaler()
+df["Amount"] = scaler.fit_transform(df[["Amount"]])
+
+# Drop Time column (not useful)
+df.drop("Time", axis=1, inplace=True)
+
+# -----------------------------
+# 4. Train-Test Split
+# -----------------------------
+
+X = df.drop("Class", axis=1)
+y = df["Class"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+# -----------------------------
+# 5. Model Training
+# -----------------------------
+
+model = LogisticRegression(max_iter=1000, class_weight="balanced")
+model.fit(X_train, y_train)
+
+# -----------------------------
+# 6. Predictions
+# -----------------------------
+
+y_pred = model.predict(X_test)
+y_prob = model.predict_proba(X_test)[:, 1]
+
+# -----------------------------
+# 7. Model Evaluation
+# -----------------------------
+
+print("\nClassification Report:\n")
+print(classification_report(y_test, y_pred))
+
+conf_matrix = confusion_matrix(y_test, y_pred)
+
+sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues")
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+roc_auc = roc_auc_score(y_test, y_prob)
+print("ROC-AUC Score:", round(roc_auc, 3))
+
+# ROC Curve
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+
+plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
+plt.plot([0, 1], [0, 1], linestyle="--")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.legend()
+plt.show()
+
+# -----------------------------
+# 8. Fraud Prediction Function
+# -----------------------------
+
+def predict_transaction(transaction_data):
+    """
+    transaction_data: list or array of 29 feature values
+    """
+    prediction = model.predict([transaction_data])
+    return "Fraud" if prediction[0] == 1 else "Legitimate"
+
+print("\nModel Ready for Real-Time Prediction")
